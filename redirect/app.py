@@ -104,7 +104,7 @@ def callback():
         return "The code was not returned or is not accessible", 403
     query_params = {'grant_type': 'authorization_code',
                     'code': code,
-                    'redirect_uri': request.base_url,
+                    'redirect_uri': config['redirect_uri'],
                     'code_verifier': session['code_verifier'],
                     }
 
