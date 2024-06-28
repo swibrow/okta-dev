@@ -38,7 +38,7 @@ CORS(app)
 
 app.wsgi_app = DispatcherMiddleware(
     Response('Not Found', status=404),
-    {'/sample': app.wsgi_app}
+    {'/placeholder': app.wsgi_app}
 )
 
 login_manager = LoginManager()
