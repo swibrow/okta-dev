@@ -31,12 +31,12 @@ def load_user(user_id):
     return User.get(user_id)
 
 
-@app.route("/")
+@app.route("/sample")
 def home():
     return render_template("home.html")
 
 
-@app.route("/login")
+@app.route("/sample/login")
 def login():
     # get request params
     query_params = {'client_id': config["client_id"],
@@ -56,13 +56,13 @@ def login():
     return redirect(request_uri)
 
 
-@app.route("/profile")
+@app.route("/sample/profile")
 @login_required
 def profile():
     return render_template("profile.html", user=current_user)
 
 
-@app.route("/authorization-code/callback")
+@app.route("/sample/authorization-code/callback")
 def callback():
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     code = request.args.get("code")
@@ -112,7 +112,7 @@ def callback():
     return redirect(url_for("profile"))
 
 
-@app.route("/logout", methods=["GET", "POST"])
+@app.route("/sample/logout", methods=["GET", "POST"])
 @login_required
 def logout():
     logout_user()
