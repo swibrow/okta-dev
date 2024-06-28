@@ -1,9 +1,13 @@
+import os
+import base64
+import hashlib
 import requests
-import random
-import string
-import logging
+import secrets
+import json
 
-from flask import Flask, render_template, redirect, request, url_for, Response
+# from dotenv import load_dotenv
+from flask import Flask, render_template, redirect, request, session, url_for
+from flask_cors import CORS
 from flask_login import (
     LoginManager,
     current_user,
@@ -12,14 +16,26 @@ from flask_login import (
     logout_user,
 )
 
-from helpers import is_access_token_valid, is_id_token_valid, config
-from user import User
-
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.wrappers import Response
 
+
+from user import User
+
+# load_dotenv('.okta.env')
+
+def load_config(fname='./client_secrets.json'):
+    config = None
+    with open(fname) as f:
+        config = json.load(f)
+    return config
+
+
+config = load_config()
+
 app = Flask(__name__)
-app.config.update({'SECRET_KEY': ''.join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=32))})
+app.config.update({'SECRET_KEY': secrets.token_hex(64)})
+CORS(app)
 
 app.wsgi_app = DispatcherMiddleware(
     Response('Not Found', status=404),
@@ -28,10 +44,6 @@ app.wsgi_app = DispatcherMiddleware(
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-
-
-APP_STATE = 'ApplicationState'
-NONCE = 'SampleNonce'
 
 
 @login_manager.user_loader
@@ -43,34 +55,35 @@ def load_user(user_id):
 def home():
     return render_template("home.html")
 
-@app.route("/health")
-def health():
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.CRITICAL)
-
-    response = Response("Ok", status=200, mimetype='text/plain')
-    log.setLevel(logging.DEBUG)
-
-    return response
 
 @app.route("/login")
 def login():
+    # store app state and code verifier in session
+    session['app_state'] = secrets.token_urlsafe(64)
+    session['code_verifier'] = secrets.token_urlsafe(64)
+
+    # calculate code challenge
+    hashed = hashlib.sha256(session['code_verifier'].encode('ascii')).digest()
+    encoded = base64.urlsafe_b64encode(hashed)
+    code_challenge = encoded.decode('ascii').strip('=')
+
     # get request params
     query_params = {'client_id': config["client_id"],
-                    'redirect_uri': config["redirect_uri"],
+                    'redirect_uri': "http://localhost:8080/sample/authorization-code/callback",
                     'scope': "openid email profile",
-                    'state': APP_STATE,
-                    'nonce': NONCE,
+                    'state': session['app_state'],
+                    'code_challenge': code_challenge,
+                    'code_challenge_method': 'S256',
                     'response_type': 'code',
                     'response_mode': 'query'}
 
     # build request_uri
     request_uri = "{base_url}?{query_params}".format(
-        base_url=config["auth_uri"],
+        base_url=config['org_url'] + "oauth2/default/v1/authorize",
         query_params=requests.compat.urlencode(query_params)
     )
 
-    app.logger.debug(f"Request URI: {request_uri}")
+    app.logger.info(f"Redirecting to {request_uri}")
 
     return redirect(request_uri)
 
@@ -85,27 +98,23 @@ def profile():
 def callback():
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     code = request.args.get("code")
-
-    app.logger.debug(f"Code: {code}")
-
+    app_state = request.args.get("state")
+    if app_state != session['app_state']:
+        return "The app state does not match"
     if not code:
         return "The code was not returned or is not accessible", 403
     query_params = {'grant_type': 'authorization_code',
                     'code': code,
-                    'redirect_uri': request.base_url
+                    'redirect_uri': request.base_url,
+                    'code_verifier': session['code_verifier'],
                     }
     query_params = requests.compat.urlencode(query_params)
-
-    app.logger.debug(f"Query params: {query_params}")
-
     exchange = requests.post(
-        config["token_uri"],
+        config['org_url'] + "oauth2/default/v1/token",
         headers=headers,
         data=query_params,
-        auth=(config["client_id"], config["client_secret"]),
+        auth=(config['client_id'], config['client_secret']),
     ).json()
-
-    app.logger.debug(f"Exchange response: {exchange}")
 
     # Get tokens and validate
     if not exchange.get("token_type"):
@@ -113,17 +122,9 @@ def callback():
     access_token = exchange["access_token"]
     id_token = exchange["id_token"]
 
-    if not is_access_token_valid(access_token, config["issuer"]):
-        return "Access token is invalid", 403
-
-    if not is_id_token_valid(id_token, config["issuer"], config["client_id"], NONCE):
-        return "ID token is invalid", 403
-
     # Authorization flow successful, get userinfo and login user
-    userinfo_response = requests.get(config["userinfo_uri"],
+    userinfo_response = requests.get(config['org_url'] + "oauth2/default/v1/userinfo",
                                      headers={'Authorization': f'Bearer {access_token}'}).json()
-
-    app.logger.debug(f"Userinfo response: {userinfo_response}")
 
     unique_id = userinfo_response["sub"]
     user_email = userinfo_response["email"]
@@ -146,6 +147,7 @@ def callback():
 def logout():
     logout_user()
     return redirect(url_for("home"))
+
 
 
 if __name__ == '__main__':
