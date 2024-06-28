@@ -104,6 +104,9 @@ def callback():
                     'redirect_uri': request.base_url,
                     'code_verifier': session['code_verifier'],
                     }
+
+    app.logger.info(f"Query params: {query_params}")
+
     query_params = requests.compat.urlencode(query_params)
     exchange = requests.post(
         config['org_url'] + "oauth2/default/v1/token",
@@ -111,6 +114,8 @@ def callback():
         data=query_params,
         auth=(config['client_id'], config['client_secret']),
     ).json()
+
+    app.logger.info(f"Exchange response: {exchange}")
 
     # Get tokens and validate
     if not exchange.get("token_type"):
