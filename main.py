@@ -1,6 +1,7 @@
 import requests
 import random
 import string
+import logging
 
 from flask import Flask, render_template, redirect, request, url_for, Response
 from flask_login import (
@@ -14,9 +15,16 @@ from flask_login import (
 from helpers import is_access_token_valid, is_id_token_valid, config
 from user import User
 
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from werkzeug.wrappers import Response
 
 app = Flask(__name__)
 app.config.update({'SECRET_KEY': ''.join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=32))})
+
+app.wsgi_app = DispatcherMiddleware(
+    Response('Not Found', status=404),
+    {'/sample': app.wsgi_app}
+)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -31,15 +39,21 @@ def load_user(user_id):
     return User.get(user_id)
 
 
-@app.route("/sample")
+@app.route("/")
 def home():
     return render_template("home.html")
 
-@app.route("/sample/health")
+@app.route("/health")
 def health():
-    return Response("Ok", status=200, mimetype='text/plain')
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.CRITICAL)
 
-@app.route("/sample/login")
+    response = Response("Ok", status=200, mimetype='text/plain')
+    log.setLevel(logging.DEBUG)
+
+    return response
+
+@app.route("/login")
 def login():
     # get request params
     query_params = {'client_id': config["client_id"],
@@ -59,13 +73,13 @@ def login():
     return redirect(request_uri)
 
 
-@app.route("/sample/profile")
+@app.route("/profile")
 @login_required
 def profile():
     return render_template("profile.html", user=current_user)
 
 
-@app.route("/sample/authorization-code/callback")
+@app.route("/authorization-code/callback")
 def callback():
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     code = request.args.get("code")
@@ -82,6 +96,8 @@ def callback():
         data=query_params,
         auth=(config["client_id"], config["client_secret"]),
     ).json()
+
+    print(exchange)
 
     # Get tokens and validate
     if not exchange.get("token_type"):
@@ -115,7 +131,7 @@ def callback():
     return redirect(url_for("profile"))
 
 
-@app.route("/sample/logout", methods=["GET", "POST"])
+@app.route("/logout", methods=["GET", "POST"])
 @login_required
 def logout():
     logout_user()
