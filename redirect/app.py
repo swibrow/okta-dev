@@ -29,7 +29,11 @@ def load_config(fname='./client_secrets.json'):
 config = load_config()
 
 app = Flask(__name__)
-app.config.update({'SECRET_KEY': secrets.token_hex(64)})
+app.config.update({
+    'SECRET_KEY': secrets.token_hex(64),
+    'PREFERRED_URL_SCHEME': 'https' if config['redirect_uri'].startswith('https') else 'http'
+})
+
 CORS(app)
 
 app.wsgi_app = DispatcherMiddleware(
@@ -88,7 +92,6 @@ def login():
 @login_required
 def profile():
     return render_template("profile.html", user=current_user)
-
 
 @app.route("/authorization-code/callback")
 def callback():
