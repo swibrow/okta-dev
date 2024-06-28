@@ -70,6 +70,8 @@ def login():
         query_params=requests.compat.urlencode(query_params)
     )
 
+    app.logger.debug(f"Request URI: {request_uri}")
+
     return redirect(request_uri)
 
 
