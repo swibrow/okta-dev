@@ -2,7 +2,7 @@ import requests
 import random
 import string
 
-from flask import Flask, render_template, redirect, request, url_for
+from flask import Flask, render_template, redirect, request, url_for, Response
 from flask_login import (
     LoginManager,
     current_user,
@@ -35,6 +35,9 @@ def load_user(user_id):
 def home():
     return render_template("home.html")
 
+@app.route("/sample/health")
+def health():
+    return Response("Ok", status=200, mimetype='text/plain')
 
 @app.route("/sample/login")
 def login():
