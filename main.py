@@ -83,6 +83,9 @@ def profile():
 def callback():
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     code = request.args.get("code")
+
+    app.logger.debug(f"Code: {code}")
+
     if not code:
         return "The code was not returned or is not accessible", 403
     query_params = {'grant_type': 'authorization_code',
@@ -90,6 +93,9 @@ def callback():
                     'redirect_uri': request.base_url
                     }
     query_params = requests.compat.urlencode(query_params)
+
+    app.logger.debug(f"Query params: {query_params}")
+
     exchange = requests.post(
         config["token_uri"],
         headers=headers,
@@ -97,7 +103,7 @@ def callback():
         auth=(config["client_id"], config["client_secret"]),
     ).json()
 
-    print(exchange)
+    app.logger.debug(f"Exchange response: {exchange}")
 
     # Get tokens and validate
     if not exchange.get("token_type"):
@@ -114,6 +120,8 @@ def callback():
     # Authorization flow successful, get userinfo and login user
     userinfo_response = requests.get(config["userinfo_uri"],
                                      headers={'Authorization': f'Bearer {access_token}'}).json()
+
+    app.logger.debug(f"Userinfo response: {userinfo_response}")
 
     unique_id = userinfo_response["sub"]
     user_email = userinfo_response["email"]
