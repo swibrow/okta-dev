@@ -5,7 +5,6 @@ import requests
 import secrets
 import json
 
-# from dotenv import load_dotenv
 from flask import Flask, render_template, redirect, request, session, url_for
 from flask_cors import CORS
 from flask_login import (
@@ -19,17 +18,13 @@ from flask_login import (
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.wrappers import Response
 
-
 from user import User
-
-# load_dotenv('.okta.env')
 
 def load_config(fname='./client_secrets.json'):
     config = None
     with open(fname) as f:
         config = json.load(f)
     return config
-
 
 config = load_config()
 
@@ -69,7 +64,8 @@ def login():
 
     # get request params
     query_params = {'client_id': config["client_id"],
-                    'redirect_uri': "http://localhost:8080/sample/authorization-code/callback",
+                    #'redirect_uri': "http://localhost:8080/sample/authorization-code/callback",
+                    'redirect_uri': config['redirect_uri'],
                     'scope': "openid email profile",
                     'state': session['app_state'],
                     'code_challenge': code_challenge,
