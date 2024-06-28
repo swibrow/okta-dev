@@ -52,6 +52,15 @@ def load_user(user_id):
 
 @app.route("/")
 def home():
+
+    user_info = {
+        'sub': request.headers.get('x-amzn-oidc-identity'),
+        'email': request.headers.get('x-amzn-oidc-data'),
+        'name': request.headers.get('x-amzn-oidc-name')
+    }
+
+    app.logger.info(f"User info: {user_info}")
+
     return render_template("home.html")
 
 
