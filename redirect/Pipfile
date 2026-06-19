@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 requests = "==2.27.1"
-flask = "==2.0.2"
+flask = "==2.3.3"
 flask-cors = "==3.0.10"
 python-dotenv = "==0.19.2"
 pyopenssl = "==22.0.0"
